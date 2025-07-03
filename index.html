@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+    <title>SSE Client Monitor</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
+        h1 { text-align: center; color: #333; }
+        .container { display: flex; justify-content: space-between; }
+        .users, .status { background: #f8f8f8; border-radius: 8px; padding: 15px; width: 48%; }
+        ul { list-style: none; padding: 0; }
+        li { padding: 8px; border-bottom: 1px solid #eee; }
+        .connected { color: green; }
+        .disconnected { color: red; }
+    </style>
+</head>
+<body>
+    <h1>Client Connection Monitor</h1>
+    <div class="container">
+        <div class="users">
+            <h2>Connected Users</h2>
+            <ul id="userList"></ul>
+        </div>
+        <div class="status">
+            <h2>Connection Events</h2>
+            <ul id="eventList"></ul>
+        </div>
+    </div>
+
+    <script>
+        const eventList = document.getElementById('eventList');
+        const userList = document.getElementById('userList');
+        const users = new Map();
+        
+        const eventSource = new EventSource('http://192.168.0.13:3000/events');
+        
+        eventSource.addEventListener('connect', event => {
+            const data = JSON.parse(event.data);
+            updateUserList(data.users);
+            
+            const li = document.createElement('li');
+            li.innerHTML = `<span class="connected">✓</span> ${data.user} connected`;
+            eventList.appendChild(li);
+        });
+        
+        eventSource.addEventListener('user_connected', event => {
+            const data = JSON.parse(event.data);
+            users.set(data.user, true);
+            updateUserList();
+            
+            const li = document.createElement('li');
+            li.innerHTML = `<span class="connected">✓</span> ${data.user} connected`;
+            eventList.appendChild(li);
+        });
+        
+        eventSource.addEventListener('user_disconnected', event => {
+            const data = JSON.parse(event.data);
+            users.set(data.user, false);
+            updateUserList();
+            
+            const li = document.createElement('li');
+            li.innerHTML = `<span class="disconnected">✗</span> ${data.user} disconnected`;
+            eventList.appendChild(li);
+        });
+        
+        function updateUserList(userArray) {
+            if (userArray) {
+                users.clear();
+                userArray.forEach(user => users.set(user, true));
+            }
+            
+            userList.innerHTML = '';
+            users.forEach((isOnline, user) => {
+                if (isOnline) {
+                    const li = document.createElement('li');
+                    li.innerHTML = `<span class="connected">✓</span> ${user}`;
+                    userList.appendChild(li);
+                }
+            });
+        }
+        
+        // Keep scroll at bottom
+        eventList.scrollTop = eventList.scrollHeight;
+        setInterval(() => {
+            eventList.scrollTop = eventList.scrollHeight;
+        }, 100);
+    </script>
+</body>
+</html>
